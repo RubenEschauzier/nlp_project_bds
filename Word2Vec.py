@@ -45,9 +45,9 @@ def transfer_learning_model():
 
 
 if __name__ == '__main__':
-    # logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-    # sentences = MyCorpus('review-003.json')
-    # model = gensim.models.Word2Vec(sentences=sentences, size=300, min_count=10)
-    # save_model(model)
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+    sentences = MyCorpus('review-003.json')
+    model = gensim.models.Word2Vec(sentences=sentences, size=300, min_count=10)
+    save_model(model)
     #load_model('Word2VecModel')
-    transfer_learning_model()
+    #transfer_learning_model()

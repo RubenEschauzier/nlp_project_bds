@@ -1,33 +1,39 @@
 import itertools
-
+import operator
+import string
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import pickle
 import nltk
+import re
 import gensim.corpora as corpora
 import gensim
 from matplotlib import pyplot as plt
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+from nltk import WordNetLemmatizer
+from nltk.tokenize.treebank import TreebankWordDetokenizer
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.corpus import stopwords, wordnet
 from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import GridSearchCV
 from wordcloud import WordCloud
 import gensim.downloader as api
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 
-def load_data(file_loc, type='question') -> np.array:
+def load_data(file_loc, type_data='question') -> np.array:
     """
     :param file_loc: Location of raw pickled question_text file
     :return: text_array: numpy array of raw questions
     """
     with open(file_loc, 'rb') as f:
         data = pickle.load(f)
-    if type == 'question':
+    if type_data == 'question':
         text_array = np.array(list(data.keys()))
         for i in range(text_array.size):
             text_array[i] = text_array[i].replace('-', " ").lower()
-        return text_array
+        return pd.DataFrame(text_array, columns=['Question'])
     else:
         return data
 
@@ -54,28 +60,21 @@ def clean_answers(answer_data):
     return answer_data
 
 
-def estimate_sentiment(text_data):
-    total_scores = []
-    binary_score = []
-    for answer in text_data['Answer']:
-        answer_score = 0
-        sent_answer = nltk.sent_tokenize(answer)
-        for sentence in sent_answer:
-            analyser = SentimentIntensityAnalyzer()
-            score = analyser.polarity_scores(sentence)
-            answer_score += score['compound']
-        total_scores.append(answer_score)
-        if answer_score > 0.05:
-            binary_score.append(1)
-        elif answer_score < -0.05:
-            binary_score.append(-1)
-        else:
-            binary_score.append(0)
-    text_data['binary_score'] = binary_score
-    text_data['score'] = total_scores
-    print(text_data)
-    print(text_data['binary_score'].value_counts())
-    return text_data
+def get_wordnet_pos(treebank_tag):
+    """
+    return WORDNET POS compliance to WORDENT lemmatization (a,n,r,v)
+    """
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV
+    else:
+        # As default pos in lemmatization is Noun
+        return wordnet.NOUN
 
 
 def remove_stopwords(input_text) -> list:
@@ -96,90 +95,10 @@ def tokenize_text(input_text) -> list:
     :return: output_text: list of tokenized questions
     """
     output_text = []
+
     for i in range(input_text.size):
-        output_text.append(word_tokenize(input_text[i]))
+        output_text.append(word_tokenize(re.sub('[' + string.punctuation + ']', '', input_text[i])))
     return output_text
-
-
-def create_input_lda(input_text):
-    """
-    Converts question_text into format needed to apply LDA
-    :param input_text: Input tokenized sentences as a list of lists
-    :return: word_dict: A dictionary mapping unique word_ids with words and
-             corpus: The question_text converted into the number of occurences of word_ids.
-    """
-    word_dict = corpora.Dictionary(input_text)
-    corpus = [word_dict.doc2bow(doc) for doc in input_text]
-    return word_dict, corpus
-
-
-def apply_lda(word_dict, corpus, num_topics):
-    lda_model = gensim.models.LdaMulticore(corpus=corpus,
-                                           id2word=word_dict,
-                                           num_topics=num_topics)
-
-    # Print the Keyword in the 10 topics
-    doc_lda = lda_model[corpus]
-    print(lda_model.print_topics())
-    print(lda_model.log_perplexity(corpus))
-
-    pass
-
-
-def create_document_vec(input_text):
-    documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(input_text)]
-    model = Doc2Vec(documents, vector_size=300, window=8, min_count=2)
-    return model
-
-
-def create_topic_vectors():
-    # These words were (mostly) compiled by Dr. Meike Morren.
-
-    diet_words = ['diet', 'healthy', 'nutrition', 'vitamins', 'dietary', 'guidelines', 'adoption', 'live',
-                  'source',
-                  'longevity', 'lifestyle', 'artificial', 'lab', 'cultured', 'cellular', 'protein']
-    # removed words vegan, vegetarian due to common occurence
-    vega_words = ['pescatarian', 'milk', 'cheese', 'welfare', 'care',
-                  'slaughter', 'cruelty', 'free', 'suffering', 'preservation', 'dairy']
-    meat_words = ['meat', 'carnivores', 'omnivores', 'pork', 'veal', 'lamb', 'beef', 'lard', 'bacon', 'steak', 'ham',
-                  'chop', 'sausage', 'sirloin', 'wings', 'ribeye', 'ribs', 'riblets']
-    # Added recipe
-    cook_words = ['baking', 'cooking', 'preparing', 'braising', 'restaurant', 'gourmet', 'supermarket', 'dining',
-                  'roasting', 'recipe']
-    animal_words = ['animals', 'flesh', 'fish', 'pig', 'chicken', 'lamb', 'sheep', 'cow', 'calf', 'goat', 'piglet',
-                    'land', 'mammals', 'reptiles', 'birds', 'amphibians']
-
-    word_vectors = gensim.downloader.load('word2vec-google-news-300')
-
-    diet_words_vectors = [word_vectors[word] for word in diet_words]
-    vega_words_vectors = [word_vectors[word] for word in vega_words]
-    meat_words_vectors = [word_vectors[word] for word in meat_words]
-    cook_words_vectors = [word_vectors[word] for word in cook_words]
-    animal_words_vectors = [word_vectors[word] for word in animal_words]
-
-    return diet_words_vectors, vega_words_vectors, meat_words_vectors, cook_words_vectors, animal_words_vectors
-
-
-def filter_questions(document_vectors, documents, n_docs, diet_v, vega_v, meat_v, cook_v, animal_v):
-    filtered_docs = []
-    for i in range(n_docs):
-        total_score = 0
-        for diet_vector in diet_v:
-            total_score += get_cosine_similarity(diet_vector, document_vectors[i])
-        for vega_vector in vega_v:
-            total_score += get_cosine_similarity(vega_vector, document_vectors[i])
-        # for meat_vector in meat_v:
-        #     total_score += get_cosine_similarity(meat_vector, document_vectors[i])
-        for cook_vector in cook_v:
-            total_score += -get_cosine_similarity(cook_vector, document_vectors[i])
-        for animal_vector in animal_v:
-            total_score += -get_cosine_similarity(animal_vector, document_vectors[i])
-        if total_score > 0:
-            filtered_docs.append(documents[i])
-            print(total_score)
-
-    print(len(filtered_docs))
-    return filtered_docs
 
 
 def get_cosine_similarity(x, y):
@@ -205,18 +124,17 @@ def create_wordcloud(data):
     word_list = ([word for word in word_list if word not in stop_words])
 
     for w in word_list:
-        word_freq[w] = word_list.count(w)
-    print(len(word_freq))
+        if w not in word_freq.keys():
+            word_freq[w] = word_list.count(w)
+    print('Total amount of unique words in the corpus: {}'.format(len(word_freq)))
     sorted_freq = dict(sorted(word_freq.items(), key=lambda item: item[1], reverse=True))
-    print(sorted_freq)
     sorted_freq = dict(itertools.islice(sorted_freq.items(), 50))
     plt.bar(list(sorted_freq.keys()), sorted_freq.values(), color='g')
     plt.xticks(rotation='vertical')
     plt.margins(0.01)
-    plt.subplots_adjust(bottom=0.2)+
+    plt.subplots_adjust(bottom=0.2)
     plt.show()
 
-    print(word_freq)
 
 def descriptive_statistics(data):
     total_words = 0
@@ -224,38 +142,41 @@ def descriptive_statistics(data):
     for question in data:
         total_words += len(question)
         total_question += 1
-    print(total_words)
-    print(total_question)
+    print('The total amount of words in the corpus: {}'.format(total_words))
+    print('The total amount of questions in the corpus: {}'.format(total_question))
 
 
-
-def main_sentiment():
-    answers = load_data('data/answers.p', type='answer')
-    answers = clean_answers(answers)
-    sent_answers = estimate_sentiment(answers)
-    pd.DataFrame.hist(sent_answers['binary_score'])
-    return sent_answers
+def get_time():
+    return datetime.now().strftime("%H:%M:%S")
 
 
-def main_filter(clean_text):
-    document_vecs = create_document_vec(clean_text)
-    dw, vw, mw, cw, aw = create_topic_vectors()
-    n_docs = len(clean_text)
-    filtered_questions = filter_questions(document_vecs, clean_text, n_docs, dw, vw, mw, cw, aw)
-    return filtered_questions
-
-
-def main_lda(clean_text):
-    words_dict, text_corpus = create_input_lda(clean_text)
-    apply_lda(words_dict, text_corpus, 10)
+def lemmatize_text(input_text):
+    lemmatizer = WordNetLemmatizer()
+    apply_lemmatization = lambda x: [lemmatizer.lemmatize(word[0], get_wordnet_pos(word[1])) for word in x]
+    tagged_text = [nltk.pos_tag(text) for text in input_text]
+    lemmatized_text = [apply_lemmatization(text) for text in tagged_text]
+    return lemmatized_text
 
 
 if __name__ == '__main__':
-    question_text = load_data('data/questions.p')
-    tokenized_text = tokenize_text(question_text)
-    processed_text = remove_stopwords(tokenized_text)
-    descriptive_statistics(processed_text)
-    create_wordcloud(question_text)
-    # filtered = main_filter(processed_text)
+    # https://www.machinelearningplus.com/nlp/topic-modeling-python-sklearn-examples/
+    # For LDA https://stats.stackexchange.com/questions/349761/reasonable-hyperparameter-range-for-latent-dirichlet-allocation
+    question_text = load_data('data_prelim/questions.p')
+    answers = load_data('data_prelim/answers.p', type_data='answer')
+    answers = clean_answers(answers)
+    answer_text = answers['Answer'].values
 
-    # sentiment_predicted = main_sentiment()
+    tokenized_answers = tokenize_text(answer_text)
+    processed_answers = remove_stopwords(tokenized_answers)
+    lemmatized_answers = lemmatize_text(processed_answers)
+
+    main_categorise(lemmatized_answers, answers, lemmatized_answers, answer_text)
+
+    # tokenized_text = tokenize_text(question_text)
+    # processed_text = remove_stopwords(tokenized_text)
+    # lemmatized_text = lemmatize_text(processed_text)
+    # LDA_scikit(lemmatized_text)
+
+    # Uncomment this to get descriptive statistics
+    # descriptive_statistics(processed_text)
+    # create_wordcloud(question_text)
