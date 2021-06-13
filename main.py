@@ -153,15 +153,14 @@ def main_answer_processor(question_df, answer_df, grid_search = False):
 def main_summary():
     answer_df = pd.read_csv('data/full_result_df')
     question_df = pd.read_csv('data/full_question_df')
-    print(answer_df.columns)
     question_df = estimate_subjectivity(question_df, 'Question')
-    print(question_df)
 
+    print('{}: Getting statistics for the LDA made categories'.format(get_time()))
     for j in range(2):
         subset_df = answer_df[answer_df['question_category'] == j]
         statistics_categories_LDA(subset_df, 'category_lda', 'Answer')
 
-    statistics_categories_LDA(answer_df, category_column='category_lda')
+    print('{} Getting categories of the division of answers to questions based on meat vs vega in questions')
     statistics_categories_manual(answer_df, 'Answer')
     get_average_sentiment(answer_df, [4, 2])
     question_df = get_sentiment_per_question(question_df, answer_df)
