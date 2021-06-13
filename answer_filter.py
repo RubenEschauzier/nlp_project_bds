@@ -84,7 +84,7 @@ def remove_stopwords(input_text) -> list:
     """
     stop_words = stopwords.words('english')
     for i in range(len(input_text)):
-        input_text[i] = ([word for word in input_text[i] if word not in stop_words])
+        input_text[i] = ([word for word in input_text[i] if word.lower() not in stop_words])
 
     return input_text
 

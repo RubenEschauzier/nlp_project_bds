@@ -9,6 +9,7 @@ from nltk import word_tokenize, sent_tokenize
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import GridSearchCV
+from matplotlib import pyplot as plt
 
 from answer_filter import remove_stopwords, tokenize_text, get_time
 
@@ -38,7 +39,7 @@ def LDA_scikit_gridsearch(lemma_text):
     vectorizer = CountVectorizer()
     model_input = vectorizer.fit_transform(input_count_vec)
 
-    params = {'n_components': [6, 8, 10, 12, 14, 16]}
+    params = {'n_components': [2, 4, 6, 8, 10, 12, 14]}
     params_quick = {'n_components': [6, 8]}
     model = LatentDirichletAllocation(random_state=2021)
     lda_search = GridSearchCV(model, param_grid=params, n_jobs=-1, refit=True)
@@ -63,6 +64,8 @@ def LDA_scikit_gridsearch(lemma_text):
     df_topic_keywords.index = ['Topic ' + str(i) for i in range(df_topic_keywords.shape[0])]
     print(df_topic_keywords)
     df_topic_keywords.to_csv('lda_output/topic_keywords')
+
+    return lda_search
 
 # Still implement automatic loading of best parameters
 def divide_documents(lemma_text, n_topics, alpha, beta, answer_df, load_best_params = False):
@@ -114,3 +117,12 @@ def statistics_categories_LDA(answer_df, category_column='LDA_topics', col_name 
                                                                                                    np.median(word_counts),
                                                                                                    np.min(word_counts),
                                                                                                    np.max(word_counts)))
+
+def plot_grid_search(cv_results, grid_param):
+    scores_mean = cv_results['mean_test_score']
+    scores_sd = cv_results['std_test_score']
+    _, ax = plt.subplots(1, 1)
+    ax.plot(grid_param, scores_mean, '-o')
+    ax.set_xlabel('Number of topics')
+    ax.set_ylabel('CV average perplexity')
+    plt.show()

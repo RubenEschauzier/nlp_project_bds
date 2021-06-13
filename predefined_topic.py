@@ -1,12 +1,17 @@
+import itertools
 import operator
+import string
+
 import numpy as np
 import pandas as pd
 import gensim
+from tqdm import tqdm
 from gensim.models import Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
 from datetime import datetime
+from collections import Counter
 
-from answer_filter import get_cosine_similarity, get_time
+from answer_filter import get_cosine_similarity, get_time, tokenize_text, remove_stopwords
 
 
 def create_document_vec(input_text):
@@ -93,7 +98,7 @@ def categorise_questions(vega_v, meat_v, document_vectors, question_df, n_answer
     num_vega = 0
     num_meat = 0
     for i in range(n_answers):
-        scores = {'vega_score': 0, 'meat_score': 0, }
+        scores = {'vega_score': 0, 'meat_score': 0}
         for vega_vector in vega_v:
             scores['vega_score'] += get_cosine_similarity(vega_vector, document_vectors[i]) / len(vega_v)
         for meat_vector in meat_v:
@@ -111,6 +116,27 @@ def categorise_questions(vega_v, meat_v, document_vectors, question_df, n_answer
     print('{}: Number in vega: {}, number in meat: {}'.format(get_time(), num_vega, num_meat))
 
     return question_df
+
+def statistics_categories_manual(answer_df, col_name):
+    # Most inefficient code in the world unfortunately, however it works so..
+
+    for i in range(2):
+        subset_df = answer_df[answer_df['question_category'] == i]
+        text = subset_df[col_name].values
+
+        word_tokenized = tokenize_text(text)
+        word_tokenized = remove_stopwords(word_tokenized)
+
+        print('{}: Creating List of words'.format(get_time()))
+        word_list = [word.lower() for document in word_tokenized for word in document if word != "'" and word != '"']
+        word_list = list(filter(lambda x: x != '"' and x != "'", word_list))
+
+        new_vals = Counter(word_list).most_common()  # this sorts the list in descending order
+
+        print('{}: Counting words'.format(get_time()))
+        print('For category: {} (manual), The top 10 most frequent words are: {}'.format(i, new_vals[:15]))
+        print('Total amount of unique words in the category manual: {}'.format(len(new_vals)))
+
 
 # def statistics_categories_manual(answer_dfd_doc, v_doc, m_doc, c_doc, a_doc, question_df, raw_answers):
 #     # Most inefficient code in the world unfortunately, however it works so..

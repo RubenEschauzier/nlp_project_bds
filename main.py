@@ -1,8 +1,10 @@
 import pandas as pd
 from answer_filter import tokenize_text, remove_stopwords, lemmatize_text, load_data, clean_answers, get_time
-from LDA import LDA_scikit_gridsearch, divide_documents, statistics_categories_LDA
-from predefined_topic import create_document_vec, create_topic_vectors, categorise_answers, categorise_questions
-from sentiment_mining import estimate_sentiment, get_average_sentiment, estimate_subjectivity
+from LDA import LDA_scikit_gridsearch, divide_documents, statistics_categories_LDA, plot_grid_search
+from predefined_topic import create_document_vec, create_topic_vectors, categorise_answers, categorise_questions, \
+    statistics_categories_manual
+from sentiment_mining import estimate_sentiment, get_average_sentiment, estimate_subjectivity, \
+    get_sentiment_per_question
 
 
 def main_sentiment():
@@ -117,6 +119,7 @@ def main_answer_processor(question_df, answer_df, grid_search = False):
     answer_df = answer_df.sort_values('question_category')
 
     topics_lda = []
+    num_topics = [4, 2]
 
     for i in range(2):
         print('{}: Processing text'.format(get_time()))
@@ -128,9 +131,10 @@ def main_answer_processor(question_df, answer_df, grid_search = False):
         lemmatized_text = lemmatize_text(processed_text)
         if grid_search:
             print('{}: Applying gridsearch for LDA'.format(get_time()))
-            LDA_scikit_gridsearch(lemmatized_text)
+            search_results = LDA_scikit_gridsearch(lemmatized_text)
+            plot_grid_search(search_results.cv_results_, [2, 4, 6, 8, 10, 12, 14])
 
-        dominant_topics = divide_documents(lemmatized_text, 6, 0, 0, answer_df)
+        dominant_topics = divide_documents(lemmatized_text, num_topics[i], 0, 0, answer_df)
         topics_lda.extend(dominant_topics)
 
     answer_df['category_lda'] = topics_lda
@@ -142,9 +146,30 @@ def main_answer_processor(question_df, answer_df, grid_search = False):
     print('\n {}: Estimating sentiment \n'.format(get_time()))
     answer_df = estimate_sentiment(answer_df, 'Answer')
     answer_df = estimate_subjectivity(answer_df, 'Answer')
-    get_average_sentiment(answer_df)
+    answer_df.to_csv('full_result_df')
+    question_df.to_csv('full_question_df')
+    get_average_sentiment(answer_df, num_topics)
+
+def main_summary():
+    answer_df = pd.read_csv('data/full_result_df')
+    question_df = pd.read_csv('data/full_question_df')
+    print(answer_df.columns)
+    question_df = estimate_subjectivity(question_df, 'Question')
+    print(question_df)
+
+    for j in range(2):
+        subset_df = answer_df[answer_df['question_category'] == j]
+        statistics_categories_LDA(subset_df, 'category_lda', 'Answer')
+
+    statistics_categories_LDA(answer_df, category_column='category_lda')
+    statistics_categories_manual(answer_df, 'Answer')
+    get_average_sentiment(answer_df, [4, 2])
+    question_df = get_sentiment_per_question(question_df, answer_df)
+    print(question_df)
+
 
 
 if __name__ == '__main__':
-    q_df, a_df = main_question_filter('Question')
-    main_answer_processor(q_df, a_df)
+    #q_df, a_df = main_question_filter('Question')
+    #main_answer_processor(q_df, a_df, grid_search=False)
+    main_summary()

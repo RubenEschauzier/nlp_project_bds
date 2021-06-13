@@ -41,13 +41,26 @@ def estimate_subjectivity(text_data, col_name):
     text_data['score_subjectivity'] = total_scores
     return text_data
 
+def get_sentiment_per_question(question_df, answer_df):
 
-def get_average_sentiment(answer_df):
-    for i in range(1, 6):
-        sentiment = answer_df['score'][answer_df['category_w2v'] == i]
-        print('{} For Topic (manual) {} average sentiment is equal to: {}'.format(get_time(), i, sentiment.mean()))
+    mean_sent_list = []
+    std_sent_list = []
+    for i in range(question_df.shape[0]):
+        answer_subset = answer_df[answer_df['QuestionID'] == i]
+        mean_sent_list.append(answer_subset['score'].mean())
+        std_sent_list.append(answer_subset['score'].std())
+    question_df['mean_sentiment'] = mean_sent_list
+    question_df['std_sentiment'] = std_sent_list
 
-    for j in range(6):
-        sentiment = answer_df['score'][answer_df['LDA_topics'] == j]
-        print('{} For Topic (LDA) {} average sentiment is equal to: {}'.format(get_time(), j, sentiment.mean()))
+    return question_df
+
+def get_average_sentiment(answer_df, num_topics):
+    print('Question topic 0 = vega, question topic 1 = meat')
+    for x in range(2):
+        subset_df = answer_df[answer_df['question_category'] == x]
+        for i in range(num_topics[x]):
+            sentiment = subset_df['score'][subset_df['category_lda'] == i]
+            print('{} For Question topic ({}) and LDA topic {} average sentiment is equal to: {}'.
+                  format(get_time(), x, i, sentiment.mean()))
+
 
