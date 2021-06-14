@@ -16,13 +16,15 @@ def estimate_sentiment(text_data, col_name) -> pd.DataFrame:
     total_scores = []
     binary_score = []
     for answer in tqdm(text_data[col_name]):
+        num_sent = 0
         answer_score = 0
         sent_answer = nltk.sent_tokenize(answer)
-        for sentence in sent_answer:
+        for i, sentence in enumerate(sent_answer):
             analyser = SentimentIntensityAnalyzer()
             score = analyser.polarity_scores(sentence)
             answer_score += score['compound']
-        total_scores.append(answer_score)
+            num_sent += 1
+        total_scores.append(answer_score/num_sent)
         if answer_score > 0.05:
             binary_score.append(1)
         elif answer_score < -0.05:

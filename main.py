@@ -1,6 +1,7 @@
 import pandas as pd
 from answer_filter import tokenize_text, remove_stopwords, lemmatize_text, load_data, clean_answers, get_time
 from LDA import LDA_scikit_gridsearch, divide_documents, statistics_categories_LDA, plot_grid_search
+from create_conflict_score import conflict_score
 from predefined_topic import create_document_vec, create_topic_vectors, categorise_answers, categorise_questions, \
     statistics_categories_manual
 from sentiment_mining import estimate_sentiment, get_average_sentiment, estimate_subjectivity, \
@@ -106,7 +107,7 @@ def main_question_filter(type_text):
     print(question_df)
 
 
-def main_answer_processor(question_df, answer_df, grid_search = False):
+def main_answer_processor(question_df, answer_df, grid_search=False):
     category_answers = []
     questions_0 = question_df[question_df['category_w2v'] == 0]['index'].values
     questions_1 = question_df[question_df['category_w2v'] == 1]['index'].values
@@ -150,6 +151,7 @@ def main_answer_processor(question_df, answer_df, grid_search = False):
     question_df.to_csv('full_question_df')
     get_average_sentiment(answer_df, num_topics)
 
+
 def main_summary():
     answer_df = pd.read_csv('data/full_result_df')
     question_df = pd.read_csv('data/full_question_df')
@@ -167,8 +169,20 @@ def main_summary():
     print(question_df)
 
 
+def main_conflict():
+    answer_df = pd.read_csv('data/full_result_df')
+    question_df = pd.read_csv('question_df_subjective')
+    question_df = question_df.drop(['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.1.1'], axis=1, errors='ignore')
+    question_df.to_csv('question_df_subjective')
+    print(question_df.columns)
+    get_sentiment_per_question(question_df, answer_df)
+
+    question_df = conflict_score(question_df, answer_df)
+    question_df.to_csv('bert_input')
+
 
 if __name__ == '__main__':
-    #q_df, a_df = main_question_filter('Question')
-    #main_answer_processor(q_df, a_df, grid_search=False)
-    main_summary()
+    q_df, a_df = main_question_filter('Question')
+    main_answer_processor(q_df, a_df, grid_search=False)
+
+    # main_conflict()
