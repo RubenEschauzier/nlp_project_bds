@@ -1,5 +1,7 @@
 import pandas as pd
+import numpy as np
 import nltk
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from textblob import TextBlob
@@ -65,4 +67,18 @@ def get_average_sentiment(answer_df, num_topics):
             print('{} For Question topic ({}) and LDA topic {} average sentiment is equal to: {}'.
                   format(get_time(), x, i, sentiment.mean()))
 
+def evaluate_performance(annotated_dataframe):
+    print(np.unique(annotated_dataframe['Ground_Truth'].values, return_counts=True))
+    estimated_score = []
+    for score in annotated_dataframe['score']:
+        if score > 0.05:
+            estimated_score.append(1)
+        elif score < -0.05:
+            estimated_score.append(-1)
+        else:
+            estimated_score.append(0)
+    print(np.unique(np.array(estimated_score), return_counts=True))
+    result = confusion_matrix(annotated_dataframe['Ground_Truth'], estimated_score, labels = [-1, 0, 1])
+
+    print(result)
 

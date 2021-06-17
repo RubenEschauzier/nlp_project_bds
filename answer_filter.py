@@ -1,5 +1,5 @@
 import itertools
-import operator
+from tqdm import tqdm
 import string
 from datetime import datetime
 import numpy as np
@@ -42,14 +42,18 @@ def annotate_data(answer_data, num_to_annotate):
     annotated_answers = []
     annotations = []
     to_annotate = answer_data.sample(n=num_to_annotate)
-    for row in to_annotate:
+    for i, answer in enumerate(to_annotate.iterrows()):
+        print('Answer {}/{}'.format(i, num_to_annotate))
         ask_input = True
         while ask_input:
-            label = input("Please annotate: {}".format(row['Answer']))
+            label = int(input("Please annotate: {}".format('\n'.join(sent_tokenize(answer[1]['Answer'])))))
             if label == 1 or label == 0 or label == -1:
-                annotated_answers.append(row['Answer'])
+                annotated_answers.append(answer[0])
                 annotations.append(label)
                 ask_input = False
+    to_annotate['Ground_Truth'] = annotations
+    print(to_annotate)
+    to_annotate.to_csv('data/annotated_dataframe')
     np.save('data/annotated_answers', annotated_answers)
     np.save('data/annotations', annotations)
 

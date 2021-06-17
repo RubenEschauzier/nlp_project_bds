@@ -1,11 +1,14 @@
 import pandas as pd
-from answer_filter import tokenize_text, remove_stopwords, lemmatize_text, load_data, clean_answers, get_time
+import numpy as np
+from answer_filter import tokenize_text, remove_stopwords, lemmatize_text, load_data, clean_answers, get_time, \
+    annotate_data
 from LDA import LDA_scikit_gridsearch, divide_documents, statistics_categories_LDA, plot_grid_search
 from create_conflict_score import conflict_score
+from plot_bert_results import plot_bert
 from predefined_topic import create_document_vec, create_topic_vectors, categorise_answers, categorise_questions, \
     statistics_categories_manual
 from sentiment_mining import estimate_sentiment, get_average_sentiment, estimate_subjectivity, \
-    get_sentiment_per_question
+    get_sentiment_per_question, evaluate_performance
 
 
 def main_sentiment():
@@ -166,23 +169,27 @@ def main_summary():
     statistics_categories_manual(answer_df, 'Answer')
     get_average_sentiment(answer_df, [4, 2])
     question_df = get_sentiment_per_question(question_df, answer_df)
-    print(question_df)
 
 
-def main_conflict():
-    answer_df = pd.read_csv('data/full_result_df')
-    question_df = pd.read_csv('question_df_subjective')
-    question_df = question_df.drop(['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.1.1'], axis=1, errors='ignore')
-    question_df.to_csv('question_df_subjective')
-    print(question_df.columns)
-    get_sentiment_per_question(question_df, answer_df)
+def main_conflict(loc_answer, loc_question):
+    answer_df = pd.read_csv(loc_answer)
+    q_df = pd.read_csv(loc_question)
+    q_df = estimate_subjectivity(q_df, 'Question')
+    q_df = q_df.drop(['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.1.1'], axis=1, errors='ignore')
+    q_df = get_sentiment_per_question(q_df, answer_df)
 
-    question_df = conflict_score(question_df, answer_df)
-    question_df.to_csv('bert_input')
+    q_df = conflict_score(q_df, answer_df)
+    q_df.to_csv('bert_input')
+    test = q_df['conflict_score'].values
+    print('min: {}, max: {}, mean: {}'.format(min(test), max(test), np.std(test)))
+    print(max(q_df['std_sentiment']))
 
 
 if __name__ == '__main__':
-    q_df, a_df = main_question_filter('Question')
-    main_answer_processor(q_df, a_df, grid_search=False)
+    #main_conflict('full_result_df', 'full_question_df')
+    # q_df, a_df = main_question_filter('Question')
+    # main_answer_processor(q_df, a_df, grid_search=False)
+    annotated_df = pd.read_csv('data/annotated_dataframe')
+    evaluate_performance(annotated_df)
+    plot_bert()
 
-    # main_conflict()
