@@ -56,6 +56,23 @@ def get_sentiment_per_question(question_df, answer_df):
 
     return question_df
 
+
+def get_sentiment_per_answer(answer_df):
+
+    mean_sent_list = []
+    std_sent_list = []
+    for i in range(answer_df.shape[0]):
+        #print(answer)
+        if i % 1000 == 0:
+            print('Iteration :' + str(i) + ' of 108812({})'.format(get_time()))
+        answer_subset = answer_df[answer_df['AnswerID'] == i]
+        mean_sent_list.append(answer_subset['score'].mean())
+        std_sent_list.append(answer_subset['score'].std())
+    answer_df['mean_sentiment'] = mean_sent_list
+    answer_df['std_sentiment'] = std_sent_list
+
+    return answer_df
+
 def get_average_sentiment(answer_df, num_topics):
     print('Question topic 0 = vega, question topic 1 = meat')
     for x in range(2):
