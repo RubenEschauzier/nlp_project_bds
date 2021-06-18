@@ -189,7 +189,7 @@ if __name__ == '__main__':
     #main_conflict('full_result_df', 'full_question_df')
     # q_df, a_df = main_question_filter('Question')
     # main_answer_processor(q_df, a_df, grid_search=False)
-    annotated_df = pd.read_csv('data/annotated_dataframe')
-    evaluate_performance(annotated_df)
+    #annotated_df = pd.read_csv('data/annotated_dataframe')
+    #evaluate_performance(annotated_df)
     plot_bert()
 
